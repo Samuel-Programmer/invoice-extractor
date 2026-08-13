@@ -1,36 +1,27 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Invoice Data Extractor
 
-## Getting Started
+Upload a PDF or image invoice and get structured line-item data back — vendor, invoice number, date, currency, total, and a full line-item breakdown — extracted by Claude and persisted to Postgres.
 
-First, run the development server:
+**Stack:** Next.js (App Router, server components + API routes), Prisma with the `pg` driver adapter for a direct Postgres connection, Anthropic SDK with Zod-validated structured outputs. A deliberately different architecture from the client-heavy SPA + Supabase-client pattern used elsewhere in this portfolio — server-rendered initial data, a custom API layer, and an ORM talking to Postgres directly.
+
+## How it works
+
+1. The upload form (`app/components/UploadForm.jsx`) posts a file to `POST /api/extract`.
+2. The route reads the file, sends it to Claude as a native PDF/image document block, and constrains the response to a Zod schema via `output_config.format` — no manual JSON parsing or retry-on-malformed-output logic needed.
+3. The result is written to Postgres via Prisma and returned to the client, which prepends it to the results list.
+4. `app/page.js` is a server component that fetches the initial extraction history directly via Prisma at request time — no client-side loading state on first paint.
+
+## Local development
 
 ```bash
+npm install
+cp .env.example .env   # fill in DATABASE_URL, DIRECT_URL, ANTHROPIC_API_KEY
+npx prisma generate
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Schema lives in `prisma/schema.prisma` and mirrors the SQL in `supabase/migrations/0005_invoice_extractor_schema.sql`. This project shares a Postgres instance with two other portfolio projects, so the schema is applied via direct SQL rather than `prisma migrate`/`db push` (which would try to introspect the whole database, including tables it doesn't own):
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+psql "$DIRECT_URL" -f supabase/migrations/0005_invoice_extractor_schema.sql
+```

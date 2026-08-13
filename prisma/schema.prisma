@@ -1,0 +1,27 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Extraction {
+  id            String    @id @default(uuid())
+  fileName      String    @map("file_name")
+  vendorName    String?   @map("vendor_name")
+  invoiceNumber String?   @map("invoice_number")
+  invoiceDate   DateTime? @map("invoice_date") @db.Date
+  currency      String?
+  total         Decimal?  @db.Decimal(10, 2)
+  lineItems     Json      @map("line_items")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@map("extractions")
+}
